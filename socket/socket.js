@@ -3,7 +3,7 @@ class ConnectionManager {
   constructor(server) {
     this.io = new Server(server, {
       cors: {
-        origin: ["http://localhost:3001", "http://172.20.10.2:4000"],
+        origin: ["http://localhost:3001", "http://172.20.10.2:4000","https://queue-model-server.onrender.com"],
         methods: ["GET", "POST", "DELETE", "PUT"],
       },
     });
@@ -53,6 +53,7 @@ class ConnectionManager {
           }
         }
       }
+      console.log('every 5 seconds')
     }, 5000); 
   }
 
