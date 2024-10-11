@@ -74,6 +74,19 @@ const loginCompany = async (req, res) => {
     }
 };
 
+const getScannedCompanies = async(req,res)=>{
+    const { companyId} = req.params;
+    console.log('companyId',companyId)
+    try {
+        const companies = await Company.findById(companyId); 
+        console.log('companies',companies)
+        if(!companies) throw new BadRequest('There is no such company')
+        res.status(StatusCodes.OK).json(companies);
+    } catch (error) {
+        throw error;
+   }
+}
+
 
 const getAllCompanies = async(req,res)=>{
         try {
@@ -87,5 +100,6 @@ const getAllCompanies = async(req,res)=>{
 module.exports = {
     registerCompany,
     loginCompany,
-    getAllCompanies
+    getAllCompanies,
+    getScannedCompanies
 };

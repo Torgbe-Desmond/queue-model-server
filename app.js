@@ -1,12 +1,11 @@
 const express = require("express");
 require("dotenv").config();
 const { app, server } = require("./socket/socket.js");
-require('dotenv').config()
 require('express-async-errors')
 const cors =  require('cors');
 const { connectMongoDB } = require("./db/db.js");
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 4000;
 
 app.use(express.json());
 app.use(cors())
@@ -14,8 +13,9 @@ app.use(cors())
 
 
 //auth route
-app.use('/api/v1/auth', require('./routes/company.js'));
-// app.use('/api/v1/auth', require('./routes/company.js'));
+app.use('/api/v1', require('./routes/company.js'));
+app.use('/api/v1', require('./routes/customer.js'));
+app.use('/api/v1',require('./routes/server.js'))
 
 
 //custom middleware

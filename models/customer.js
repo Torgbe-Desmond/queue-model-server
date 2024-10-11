@@ -2,17 +2,20 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const userSchema = new Schema({
-    customerName: {
+    username: {
         type: String,
         required: true
     },
-    assignedServerChannel: [{
-        type: Schema.Types.ObjectId,
-        ref: 'ServerChannel',
-        default:'none'
-    }],
-    customerNumber: {
-        type: Number, 
+    email: {
+        type: String,
+        required: true
+    },
+    gender: {
+        type: String,
+        enum:['male','female']
+    },
+    password: {
+        type: String,
         required: true
     },
 });

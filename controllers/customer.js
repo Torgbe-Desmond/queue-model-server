@@ -1,39 +1,55 @@
 const Customer = require('../models/customer');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+require('dotenv').config();
+const { StatusCodes } = require('http-status-codes');
+const BadRequest = require('../Errors/BadRequest');
+const { generateRandomString } = require('../utils/generateRandomString');
+const mongoose = require('mongoose')
 
 
 const registerCustomer = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction()
     try {
-        const { name, address, email, phone, password } = req.body;
+        const { email, password } = req.body;
+
+        console.log('email',email)
 
         // Check if customer with the provided email already exists
-        let customer = await Customer.findOne({ 'contact.email': email });
+        let customer = await Customer.findOne({ 'email': email });
         if (customer) {
-            return res.status(400).json({ message: 'Customer already exists' });
+            throw new BadRequest('Customer already exists')
         }
 
         // Hash the password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
+        
+        let randomString = generateRandomString(5); 
+        let _username = email.split('@')[0];
+        _username = _username + randomString;
 
         // Create new customer with all fields
-        customer = new Customer({
-            name,
-            address,
-            contact: {
-                email,
-                phone
-            },
+       const newCustomer = await Customer.create({
+            username:_username,
+            email,
             password: hashedPassword
-        });
+        },{session});
 
+        const payload = {
+            customer: {
+                id: newCustomer[0]._id
+            }
+        };
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
         // Save the customer to the database
-        await customer.save();
-        res.status(201).json({ message: 'Customer registered successfully' });
+        res.status(StatusCodes.CREATED).json({token:token});
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+       await session.abortTransaction();
+       throw error;
+    } finally {
+        session.endSession()
     }
 };
 
@@ -41,15 +57,17 @@ const registerCustomer = async (req, res) => {
 const loginCustomer = async (req, res) => {
     try {
         const { email, password } = req.body;
+        console.log('email',email)
         // Find the customer by email
         const customer = await Customer.findOne({ email });
+        console.log('customer',customer)
         if (!customer) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+            throw new BadRequest('Invalid credentials')
         }
         // Check if the password matches the hashed password
         const isMatch = await bcrypt.compare(password, customer.password);
         if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+            throw new BadRequest('Invalid credentials')
         }
         // Create JWT payload
         const payload = {
@@ -57,14 +75,11 @@ const loginCustomer = async (req, res) => {
                 id: customer._id
             }
         };
-
         // Sign the JWT token
-        jwt.sign(payload, 'your_jwt_secret', { expiresIn: '1h' }, (err, token) => {
-            if (err) throw err;
-            res.json({ token });
-        });
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
+        res.status(StatusCodes.OK).json({token:token,_id:customer._id})
     } catch (error) {
-        res.status(500).json({ message: 'Server error', error: error.message });
+        throw error;
     }
 };
 

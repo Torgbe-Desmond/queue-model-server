@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAllServers, addServer, deleteServer } = require('../controllers/serverController');
+const { getAllServers, addServer, deleteServer } = require('../controllers/server');
 
 // Get all servers endpoint
 router.get('/getAllServers', getAllServers);
