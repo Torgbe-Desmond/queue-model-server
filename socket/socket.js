@@ -1,10 +1,9 @@
-const { Server } = require("socket.io");
 
 class ConnectionManager {
   constructor(server) {
     this.io = new Server(server, {
       cors: {
-        origin: ["http://localhost:4000", "http://172.20.10.2:4000"],
+        origin: ["http://localhost:3001", "http://172.20.10.2:4000"],
         methods: ["GET", "POST", "DELETE", "PUT"],
       },
     });
@@ -151,32 +150,46 @@ class ConnectionManager {
   // Setup socket listeners
   setupSocketListeners() {
     this.io.on("connection", (socket) => {
-      console.log("A user connected:", socket.id);
+        console.log("A user connected:", socket.id);
 
-      const clientData = socket.handshake.query.clientData;
-      const serverData = socket.handshake.query.serverData;
+        const clientData = socket.handshake.query.clientData;
+        const serverData = socket.handshake.query.serverData;
 
-      if (serverData && serverData !== "undefined") {
-        this.handleServerConnection(socket, JSON.parse(serverData));
-      }
+        // Handle server data
+        if (serverData) {
+            try {
+                const parsedServerData = JSON.parse(serverData);
+                this.handleServerConnection(socket, parsedServerData);
+            } catch (error) {
+                console.error("Error parsing serverData:", error);
+            }
+        }
 
-      if (clientData && clientData !== "undefined") {
-        this.handleClientConnection(socket, JSON.parse(clientData));
-      }
+        // Handle client data
+        if (clientData) {
+            try {
+                const parsedClientData = JSON.parse(clientData);
+                this.handleClientConnection(socket, parsedClientData);
+            } catch (error) {
+                console.error("Error parsing clientData:", error);
+            }
+        }
 
-      socket.on("endService", (data) => this.handleEndService(data));
-      socket.on("startService", (data)=>this.handleStartService(data));
-      socket.on("disconnect", () => this.handleDisconnection(socket));
+        socket.on("endService", (data) => this.handleEndService(data));
+        socket.on("startService", (data) => this.handleStartService(data));
+        socket.on("disconnect", () => this.handleDisconnection(socket));
     });
-  }
 }
+
+}
+const { Server } = require("socket.io");
 const http = require('http');
 const express = require('express');
+const app = express();
+const server = http.createServer(app) 
 const Company = require("../models/company");
 const Customer = require("../models/customer");
 const Channel = require("../models/server");
-const app = express();
-const server = http.createServer(app)
 
 // Initialize the ConnectionManager
 const connectionManager = new ConnectionManager(server);

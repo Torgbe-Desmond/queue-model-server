@@ -21,26 +21,47 @@ const getAllServers = async (req, res) => {
 const addServer = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
+
     try {
         const { companyId } = req.body;
-        const getCompanyName = await Company.findOne({ _id: companyId });
-        const newServerName = `${getCompanyName.name}_${generateRandomString(10)}`;
 
-        await ServerChannel.create({
+        // Validate companyId before proceeding
+        if (!companyId) {
+            throw new Error('Company ID is required');
+        }
+
+        // Fetch the company name based on the provided companyId
+        const getCompanyName = await Company.findById(companyId).session(session);
+        if (!getCompanyName) {
+            throw new Error('Company not found');
+        }
+
+        // Generate a new server name
+        const newServerName = `${getCompanyName.name}_${generateRandomString(10)}`;
+        console.log('newServerName', newServerName);
+
+        // Create a new server channel
+        const server = await ServerChannel.create([{
             name: newServerName,
             companyId,
             serverNumber: generateRandomString(5)
-        }, { session });
+        }], { session });
+        console.log('server', server);
 
+        // Commit the transaction if everything goes well
         await session.commitTransaction();
-        res.status(201).json({ message: 'Server added successfully' });
+        res.status(201).json({ message: 'Server added successfully', server });
     } catch (error) {
+        // Abort the transaction in case of an error
         await session.abortTransaction();
+        console.error('Transaction error:', error);
         res.status(500).json({ message: 'Server error', error: error.message });
     } finally {
+        // End the session
         session.endSession();
     }
 };
+
 
 // Delete a server
 const deleteServer = async (req, res) => {

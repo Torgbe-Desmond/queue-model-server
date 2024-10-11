@@ -1,5 +1,6 @@
   require("dotenv").config();
-  const { app, server, express } = require("./socket/socket.js");
+  const express = require('express')
+  const { app, server } = require("./socket/socket.js");
   require('express-async-errors')
   const cors =  require('cors');
   const { connectMongoDB } = require("./db/db.js");

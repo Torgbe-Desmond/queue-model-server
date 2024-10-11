@@ -8,11 +8,11 @@ const serverChannelSchema = new Schema({
     },
     companyId: {
         type: Schema.Types.ObjectId,
-        ref: 'Administration',
+        ref: 'Company',
         required: true
     },
     serverNumber: {
-        type: Number,
+        type: String,
         required: true
     },
 

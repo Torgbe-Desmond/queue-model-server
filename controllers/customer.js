@@ -6,6 +6,7 @@ const { StatusCodes } = require('http-status-codes');
 const BadRequest = require('../Errors/BadRequest');
 const { generateRandomString } = require('../utils/generateRandomString');
 const mongoose = require('mongoose')
+const Company = require('../models/company')
 
 
 const registerCustomer = async (req, res) => {
@@ -59,6 +60,8 @@ const loginCustomer = async (req, res) => {
         const { email, password } = req.body;
         console.log('email',email)
         // Find the customer by email
+        const allCompany = await Company.find({})
+        console.log(allCompany)
         const customer = await Customer.findOne({ email });
         console.log('customer',customer)
         if (!customer) {
