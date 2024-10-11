@@ -1,3 +1,5 @@
+const { Server } = require("socket.io");
+
 class ConnectionManager {
   constructor(server) {
     this.io = new Server(server, {
@@ -17,7 +19,7 @@ class ConnectionManager {
 
     this.initializeState();
     this.setupSocketListeners();
-    this.startIdleServerCheck(); // Start periodic check
+    this.serverEventEventHandelr(); // Start periodic check
   }
 
   // Initialize state for companies
@@ -33,30 +35,26 @@ class ConnectionManager {
     });
   }
 
-  // Periodically check for idle servers and perform some action
-  startIdleServerCheck() {
+  // Periodically check for idle servers andi if any assign any available customer to that
+  // server
+  serverEventEventHandelr() {
     setInterval(async () => {
       for (const companyId in this.availableServers) {
-        const idleChannels = this.currentIdleChannels[companyId].idleChannels;
-        const onlineChannels = this.availableServers[companyId].onlineChannels;
-
-        console.log(`Checking idle servers for company ${companyId}`);
-        console.log(`Idle channels: ${idleChannels}`);
-        console.log(`Online channels: ${onlineChannels}`);
+        const idleChannels = this.currentIdleChannels[companyId]?.idleChannels;
+        const onlineChannels = this.availableServers[companyId]?.onlineChannels;
 
         // Logic to handle idle servers
         if (onlineChannels.length && idleChannels.length) {
-          console.log(`Company ${companyId} has idle servers. Taking appropriate actions.`);
           if(customersByCompany[companyId].waitingInLineCustomerslength > 0 ){
-              const nextCustomer = customersByCompany[companyId].waitingInLineCustomerslength.shift();
-              const customerInfo = await Customer.findById(nextCustomer);
-              const channelInfo = await Channel.findById(idleChannels[0]);
+              const nextCustomer =  customersByCompany[companyId].waitingInLineCustomerslength.shift();
+              const customerInfo =  await Customer.findById(nextCustomer);
+              const channelInfo  =  await Channel.findById(idleChannels[0]);
               this.fireUserSocket(nextCustomer, channelInfo);
               this.fireServerSocket(idleChannels[0], customerInfo);
           }
         }
       }
-    }, 5000); // Runs every 5 seconds
+    }, 5000); 
   }
 
   // Emit a message to a user
@@ -72,14 +70,6 @@ class ConnectionManager {
     const socketId = this.serverSocketMap[serverId];
     if (socketId) {
       this.io.to(socketId).emit("Channel", { customerInfo: JSON.stringify(customerInfo) });
-    }
-  }
-
-  // Emit message for a newly joined customer
-  fireNewlyjoinedCustomer(serverId, customerInfo) {
-    const socketId = this.serverSocketMap[serverId];
-    if (socketId) {
-      this.io.to(socketId).emit("NewCustomer", { customerInfo: JSON.stringify(customerInfo) });
     }
   }
 
@@ -105,13 +95,26 @@ class ConnectionManager {
     }
   }
 
-  // Handle the end of service
-  async handleEndStartService(data) {
+  // handle add server to idle customers
+  async handleStartService(data) {
     const { companyId, serverId } = data;
-    const waitingCustomers = this.customersByCompany[companyId].waitingInLineCustomers;
-    const availableServers = this.availableServers[companyId].onlineChannels;
+    const idleChannels =  this.currentIdleChannels[companyId].idleChannels;
+    if(!idleChannels.includes(serverId)){
+      idleChannels.push(serverId)
+    }
+  }
 
 
+  // Handle the end of service
+  async handleEndService(data){
+    const { companyId, serverId } = data;
+    const idleChannels =  this.currentIdleChannels[companyId].idleChannels;
+    if(idleChannels.includes(serverId)){
+       const indexOfServer = idleChannels.indexOf(serverId);
+       if(indexOfServer !== -1){
+          idleChannels.split(indexOfServer,1)
+       }
+    }
   }
 
   // Handle socket disconnection
@@ -161,17 +164,21 @@ class ConnectionManager {
         this.handleClientConnection(socket, JSON.parse(clientData));
       }
 
-      socket.on("endService", (data) => this.handleEndStartService(data));
+      socket.on("endService", (data) => this.handleEndService(data));
+      socket.on("startService", (data)=>this.handleStartService(data));
       socket.on("disconnect", () => this.handleDisconnection(socket));
     });
   }
 }
-
-// Initialize express and HTTP server
+const http = require('http');
+const express = require('express');
+const Company = require("../models/company");
+const Customer = require("../models/customer");
+const Channel = require("../models/server");
 const app = express();
-const server = http.createServer(app);
+const server = http.createServer(app)
 
 // Initialize the ConnectionManager
 const connectionManager = new ConnectionManager(server);
 
-module.exports = { app, server };
+module.exports = { app, server, express };  // Ensure this is exported
