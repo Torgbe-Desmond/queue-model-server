@@ -111,7 +111,7 @@ class ConnectionManager {
     if(idleChannels.includes(serverId)){
        const indexOfServer = idleChannels.indexOf(serverId);
        if(indexOfServer !== -1){
-          idleChannels.split(indexOfServer,1)
+          idleChannels.splice(indexOfServer,1)
        }
     }
   }
