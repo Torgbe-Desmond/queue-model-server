@@ -8,7 +8,10 @@
   const PORT = process.env.PORT || 4000;
 
   app.use(express.json());
-  app.use(cors())
+  app.use(cors({
+    origin: ["http://localhost:3001", "http://172.20.10.2:4000","http://localhost:3001/qr-scan",],
+    methods: ["GET", "POST", "DELETE", "PUT"],
+  },))
 
 
 

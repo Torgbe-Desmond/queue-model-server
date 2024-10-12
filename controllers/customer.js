@@ -54,37 +54,45 @@ const registerCustomer = async (req, res) => {
     }
 };
 
-
 const loginCustomer = async (req, res) => {
     try {
         const { email, password } = req.body;
-        console.log('email',email)
+
         // Find the customer by email
-        const allCompany = await Company.find({})
-        console.log(allCompany)
         const customer = await Customer.findOne({ email });
-        console.log('customer',customer)
+        
         if (!customer) {
-            throw new BadRequest('Invalid credentials')
+            throw new BadRequest('Invalid credentials');
         }
+
         // Check if the password matches the hashed password
         const isMatch = await bcrypt.compare(password, customer.password);
         if (!isMatch) {
-            throw new BadRequest('Invalid credentials')
+            throw new BadRequest('Invalid credentials');
         }
+
         // Create JWT payload
         const payload = {
             customer: {
                 id: customer._id
             }
         };
+
         // Sign the JWT token
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
-        res.status(StatusCodes.OK).json({token:token,_id:customer._id})
+
+        // Remove password from customer object before returning
+        const { password: _, ...customerData } = customer.toObject(); // Convert mongoose document to plain object and exclude password
+
+        // Return token and customer data without password
+        res.status(StatusCodes.OK).json({ token: token, customer: customerData });
+        
     } catch (error) {
-        throw error;
+        console.error(error);
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: error.message });
     }
 };
+
 
 module.exports = {
     registerCustomer,
