@@ -6,6 +6,10 @@ const userSchema = new Schema({
         type: String,
         required: true
     },
+    image:{
+        type: String,
+        ref:'File'
+    },
     email: {
         type: String,
         required: true
@@ -14,6 +18,10 @@ const userSchema = new Schema({
         type: String,
         enum:['male','female']
     },
+    history: [{
+        type: Schema.Types.ObjectId,
+        ref: 'ScanHistory'
+    }],
     password: {
         type: String,
         required: true

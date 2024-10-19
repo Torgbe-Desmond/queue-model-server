@@ -7,17 +7,17 @@ const ScanHistorySchema = new Schema({
     type: String,
     required: true,
   },
-  location: {
-    type: String,
-    required: true,
-  },
-  date: {
-    type: Date,
-    required: true,
-  },
   startTime: {
     type: String,
     required: true,
+  },
+  address:{
+    type:String,
+    required:true,
+  },
+  phone:{
+    type:String,
+    required:true,
   },
   endTime: {
     type: String,
@@ -27,7 +27,16 @@ const ScanHistorySchema = new Schema({
     type: String,
     required: true,
   },
-});
+  userId:{
+    type: Schema.Types.ObjectId,
+    required: true,
+    ref:'User'
+  },
+},
+{
+  timestamps:true,
+}
+);
 
 const ScanHistory = mongoose.model('ScanHistory', ScanHistorySchema);
 module.exports = ScanHistory;

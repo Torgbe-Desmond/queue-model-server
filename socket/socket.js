@@ -3,12 +3,13 @@ class ConnectionManager {
   constructor(server) {
     this.io = new Server(server, {
       cors: {
-        origin: ["http://localhost:3001", "http://172.20.10.2:4000","http://localhost:3001/qr-scan",],
+        origin: ["http://localhost:3000", "http://172.20.10.2:4000","https://studio.apollographql.com/sandbox/explorer/"],
         methods: ["GET", "POST", "DELETE", "PUT"],
       },
     });
 
     this.userSocketMap = {}; // Maps userId to socketId
+    this.adminSocketMap = {};
     this.serverSocketMap = {}; // Maps serverId to socketId
     this.registeredCompanies = new Set(); // Set to store unique company IDs
     this.customersByCompany = {}; // Stores customers grouped by companyId
@@ -33,7 +34,6 @@ class ConnectionManager {
       this.availableServers[companyId] = { onlineChannels: [] };
       this.currentIdleChannels[companyId] = { idleChannels: [] };
       this.customersBeingServed[companyId] = {};
-    
     });
   }
 
@@ -42,24 +42,35 @@ class ConnectionManager {
   serverEventHandler() {
     setInterval(async () => {
       for (const companyId in this.availableServers) {
-        const idleChannels = this.currentIdleChannels[companyId]?.idleChannels || [];
-        const onlineChannels = this.availableServers[companyId]?.onlineChannels || [];
 
-        // Logic to handle idle servers
+
+
+        // handle sending active server to appropriate administration dashboard
+        this.emitActiveServers()
+  
+
+        const idleChannels   = this.currentIdleChannels[companyId]?.idleChannels || [];
+        const onlineChannels = this.availableServers[companyId]?.onlineChannels || [];
+        const waitingInLineCustomers = this.customersByCompany[companyId].waitingInLineCustomers || []
+
         if (onlineChannels.length > 0 && idleChannels.length > 0) {
-          if (this.customersByCompany[companyId].waitingInLineCustomers.length > 0) {
-            const nextCustomer = this.customersByCompany[companyId].waitingInLineCustomers.shift();
-            const customerInfo = await Customer.findById(nextCustomer);
-            const channelInfo = await Channel.findById(idleChannels[0]);
+
+          if (waitingInLineCustomers.length > 0) {
+
+            const nextAvailableCustomer = waitingInLineCustomers.shift();
+            const nextAvailableServer = idleChannels.shift();
+
+            console.log(nextAvailableCustomer)
+            console.log(nextAvailableServer)
+
+            const customerInfo = await Customer.findById(nextAvailableCustomer).select('-password').populate('image');
+            const channelInfo  = await Channel.findById(nextAvailableServer).select('-password');
         
-            this.fireUserSocket(nextCustomer, channelInfo);
-            this.fireServerSocket(idleChannels[0], customerInfo);
+            this.fireUserSocket(nextAvailableCustomer, channelInfo);
+            this.fireServerSocket(nextAvailableServer, customerInfo);
         
-            // Mark the server as busy by moving it from idle to busy state
-            this.customersBeingServed[companyId][idleChannels[0]] = nextCustomer;
+            this.customersBeingServed[companyId][nextAvailableServer] = nextAvailableCustomer;
         
-            // Remove from idle channels
-            idleChannels.shift();
           }
         }
         
@@ -71,6 +82,7 @@ class ConnectionManager {
       console.log('Idle Channels:', this.currentIdleChannels);
       console.log('Available Channels:', this.availableServers);
       console.log('Serving Channels:', this.customersBeingServed);
+      console.log('Logged in companies', this.adminSocketMap)
     }, 7000);
   }
 
@@ -86,7 +98,15 @@ class ConnectionManager {
   fireServerSocket(serverId, customerInfo) {
     const socketId = this.serverSocketMap[serverId];
     if (socketId) {
-      this.io.to(socketId).emit("Channel", { customerInfo: JSON.stringify(customerInfo) });
+      this.io.to(socketId).emit("Channel", { customerInfo });
+    }
+  }
+
+   // Emit a warning message to the server
+  fireAdminSocket(companyId, adminInfomation) {
+    const socketId = this.adminSocketMap[companyId];
+    if (socketId) {
+      this.io.to(socketId).emit("online",adminInfomation);
     }
   }
   // Emit a warning message to the server
@@ -101,20 +121,65 @@ class ConnectionManager {
       this.io.to(socketId).emit("serverIdle",statusMessage);
     }
 
+   // to send message outside this class
+   getUserSocketMap(userId){
+     return this.userSocketMap[userId]
+   }
+
+   // to use the io outside this class
+   getIO() {
+    return this.io;
+  }
+
+  // emit active servers to their corresponding company
+  emitActiveServers() {
+    // Iterate over adminId keys in availableServers
+    for (const companyId of Object.keys(this.adminSocketMap)) {
+      console.log('inside emit active servers', companyId)
+      if (this.registeredCompanies.has(companyId)) {
+          const activeChannels = this.availableServers[companyId].onlineChannels;
+          console.log(activeChannels)
+          let activeServers = []
+          activeChannels.forEach(channel => {
+            activeServers.push(channel)
+            this.fireAdminSocket(companyId, { active:activeServers});
+        });
+      }
+    }
+  }
+
+
+handleAdmistration(socket,adminData){
+  const { companyId } = adminData;
+  if (typeof companyId !== 'undefined') {
+       this.adminSocketMap[companyId] = socket.id;
+  }ss
+} 
+  
+
 // Handle server connections
 handleServerConnection(socket, serverData) {
   const { serverId, companyId } = serverData;
+
   if (typeof serverId !== 'undefined' && typeof companyId !== 'undefined') {
+
     this.serverSocketMap[serverId] = socket.id; // Map server to socket ID
+
     if (this.registeredCompanies.has(companyId)) {
-      // const idleChannels = this.currentIdleChannels[companyId]?.idleChannels || [];
-      // if (!idleChannels.includes(serverId)) {
-      //   idleChannels.push(serverId);
-      // }
+    
+      if(!this.availableServers[companyId]?.onlineChannels.includes(serverId)){
+        const idleChannels = this.currentIdleChannels[companyId]?.idleChannels || [];
+        if (!idleChannels.includes(serverId)) {  
+             idleChannels.push(serverId);
+        }
+      }
+
       const availableServers = this.availableServers[companyId]?.onlineChannels || [];
       if (!availableServers.includes(serverId)) {
-        availableServers.push(serverId);
+          availableServers.push(serverId);
       }
+
+
     }
   }
 }
@@ -122,7 +187,6 @@ handleServerConnection(socket, serverData) {
 // Handle client/user connections
 async handleClientConnection(socket, clientData) {
   const { companyId, userId } = clientData;
-  console.log('inside client',userId)
   if (typeof userId !== 'undefined' && typeof companyId !== 'undefined') {
     this.userSocketMap[userId] = socket.id;
     const waitingCustomers = this.customersByCompany[companyId]?.waitingInLineCustomers || [];
@@ -134,7 +198,6 @@ async handleClientConnection(socket, clientData) {
 
 // Handle add server to idle customers
 async handleStartService(data) {
-  console.log('start');
   const { companyId, serverId } = data;
   if (typeof serverId !== 'undefined' && typeof companyId !== 'undefined') {
     const idleChannels = this.currentIdleChannels[companyId].idleChannels;
@@ -148,13 +211,10 @@ async handleStartService(data) {
     } else {
       // Add the server to the idle list if it's not already there
       if (!idleChannels.includes(serverId)) {
-        idleChannels.push(serverId);
+          idleChannels.push(serverId);
 
         // Emit idle status to the server
-        const socketId = this.serverSocketMap[serverId];
-        if (socketId) {
           this.fireStatusSocket(serverId,{ message: `Server ${serverId} is now idle for company ${companyId}` })
-        }
       }
     }
   }
@@ -162,12 +222,12 @@ async handleStartService(data) {
 
 // Handle the end of service
 async handleEndService(data) {
-  console.log('end');
   const { companyId, serverId } = data;
   const idleChannels = this.currentIdleChannels[companyId].idleChannels;
 
   // Remove the server from the busy list and mark it as idle
   if (this.customersBeingServed[companyId][serverId]) {
+    console.log(serverId)
     delete this.customersBeingServed[companyId][serverId];
     idleChannels.push(serverId);
 
@@ -186,6 +246,7 @@ async handleEndService(data) {
 
   // Handle socket disconnection
   handleDisconnection(socket) {
+    console.log('handle disconnection success')
     for (const [userId, socketId] of Object.entries(this.userSocketMap)) {
       if (socketId === socket.id) {
         delete this.userSocketMap[userId];
@@ -209,6 +270,11 @@ async handleEndService(data) {
           if (index !== -1) {
             idleList.splice(index, 1);
           }
+          const onlineList = this.availableServers[companyId].onlineChannels;
+          const onlineIndex = onlineList.indexOf(serverId);
+          if (onlineIndex !== -1) {
+            onlineList.splice(onlineIndex, 1);
+          }
         }
         break;
       }
@@ -222,6 +288,8 @@ async handleEndService(data) {
 
         const clientData = socket.handshake.query.clientData;
         const serverData = socket.handshake.query.serverData;
+        const adminData = socket.handshake.query.adminData;
+
 
         // Handle server data
         if (serverData) {
@@ -243,6 +311,15 @@ async handleEndService(data) {
             }
         }
 
+        if(adminData){
+          try {
+                const parsedAdminData = JSON.parse(adminData);
+                this.handleAdmistration(socket,parsedAdminData)
+          } catch (error) {
+            
+          }
+        }
+
         socket.on("endService", (data) => this.handleEndService(data));
         socket.on("startService", (data) => this.handleStartService(data));
         socket.on("disconnect", () => this.handleDisconnection(socket));
@@ -262,4 +339,4 @@ const Channel = require("../models/server");
 // Initialize the ConnectionManager
 const connectionManager = new ConnectionManager(server);
 
-module.exports = { app, server, express };  // Ensure this is exported
+module.exports = { app, server, express,connectionManager };  // Ensure this is exported

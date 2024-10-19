@@ -11,8 +11,8 @@ const registerCompany = async (req, res) => {
     session.startTransaction()
 
     try {
-        const { name, address, email, phone, password } = req.body;
-        let company = await Company.findOne({ name:name });
+        const { email, password } = req.body;
+        let company = await Company.findOne({ email });
         if (company) {
             throw new BadRequest('Company already exists')
         }
@@ -22,10 +22,7 @@ const registerCompany = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
 
         await Company.create([{
-            name,
-            address,
             email, 
-            phone,
             password: hashedPassword
         }],{session});
 
@@ -67,7 +64,7 @@ const loginCompany = async (req, res) => {
         // Sign the JWT token
         jwt.sign(payload, 'your_jwt_secret', { expiresIn: '1h' }, (err, token) => {
             if (err) throw err;
-            res.json({ token });
+            res.json({ token,id:company._id });
         });
     } catch (error) {
         throw error;
@@ -76,7 +73,6 @@ const loginCompany = async (req, res) => {
 
 const getScannedCompanies = async(req,res)=>{
     const { companyId} = req.params;
-    console.log('companyId',companyId)
     try {
         const companies = await Company.findById(companyId); 
         console.log('companies',companies)
@@ -88,18 +84,69 @@ const getScannedCompanies = async(req,res)=>{
 }
 
 
-const getAllCompanies = async(req,res)=>{
+const getCompany = async(req,res)=>{
         try {
-            const companies = await Company.find(); // Fetch all companies
+            const { id } = req.params
+            const companies = await Company.findById(id); // Fetch all companies
             res.status(StatusCodes.OK).json(companies); // Send the companies as a response
         } catch (error) {
             throw error;
        }
 }
 
+
+const updateCompanyInformation = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    const { companyId, name, address, phone } = req.body;
+    console.log(companyId, name, address, phone)
+    // const profileImage = req.file;  // Multer stores the file here
+    // console.log(req.file)
+
+    try {
+        // Check if the company exists
+        const companyExist = await Company.findById(companyId);
+        if (!companyExist) {
+            throw new BadRequest('Company does not exist');
+        }
+
+
+        // Prepare update data
+        const updateData = { name, address, phone };
+        
+        // If profileImage exists, add it to the update data
+        // if (profileImage) {
+        //     updateData.profileImage = profileImage.path; // Store the file path or use profileImage.filename depending on your needs
+        // }
+
+        // Update the company information
+        const updatedCompany = await Company.findByIdAndUpdate(
+            companyId,
+            updateData,
+            { new: true, session } // Return the updated document with { new: true }
+        );
+
+        // Commit the transaction
+        await session.commitTransaction();
+
+        // Send updated company info in response
+        res.status(StatusCodes.OK).json(updatedCompany);
+
+    } catch (error) {
+        // Abort transaction if there's an error
+        await session.abortTransaction();
+        throw error;
+    } finally {
+        session.endSession();
+    }
+};
+
+
 module.exports = {
     registerCompany,
     loginCompany,
-    getAllCompanies,
-    getScannedCompanies
+    getCompany,
+    getScannedCompanies,
+    updateCompanyInformation
 };
