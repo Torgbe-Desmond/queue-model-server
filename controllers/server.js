@@ -39,7 +39,7 @@ const getServers = async (req, res) => {
 const getCompanyDetails = async (req, res) => {
     try {
         const { serverId } = req.params;
-        const server = await ServerChannel.findById(serverId).populate('serverChannels');
+        const server = await ServerChannel.findById(serverId)
         // Check if there are any server
         if (!server) {
             throw new NotFound('Company not found');
