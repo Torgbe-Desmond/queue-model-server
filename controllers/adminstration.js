@@ -12,8 +12,8 @@ const registerCompany = async (req, res) => {
 
     try {
         const { email, password } = req.body;
-        let company = await Company.findOne({ email });
-        if (company) {
+        let companyExist = await Company.findOne({ email });
+        if (companyExist) {
             throw new BadRequest('Company already exists')
         }
 
@@ -21,15 +21,26 @@ const registerCompany = async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        await Company.create([{
+       const company = await Company.create([{
             email, 
             password: hashedPassword
         }],{session});
 
-        await session.commitTransaction();
 
+
+        await session.commitTransaction();
+      // Create JWT payload
+        const payload = {
+            company: {
+                id: company[0]._id
+            }
+        };
+        // Sign the JWT token
+        jwt.sign(payload, 'your_jwt_secret', { expiresIn: '1h' }, (err, token) => {
+            if (err) throw err;
+            res.json({ token,id:company._id });
+        });
         // Save the company to the database
-        res.status(StatusCodes.CREATED).json({ message: 'Company registered successfully' });
     } catch (error) {
         await session.abortTransaction();
         throw error

@@ -18,7 +18,6 @@ const getAllScanHistories = async (req, res) => {
   }
 };
 
-
 // Create a new scan history
 const createScanHistory = async (req, res) => {
   const session = await mongoose.startSession();

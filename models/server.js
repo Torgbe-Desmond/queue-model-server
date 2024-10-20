@@ -11,7 +11,6 @@ const serverChannelSchema = new Schema({
         type: String,
         required: true
     },
-
 });
 
 module.exports = mongoose.model('ServerChannel', serverChannelSchema);
