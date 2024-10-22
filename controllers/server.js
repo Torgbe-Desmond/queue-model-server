@@ -104,6 +104,7 @@ const deleteServer = async (req, res) => {
     session.startTransaction();
     try {
         const { serverId } = req.params;
+        console.log('serverId',serverId)
         const server = await ServerChannel.findById(serverId);
         if (!server) {
             throw new BadRequest('Server not found')

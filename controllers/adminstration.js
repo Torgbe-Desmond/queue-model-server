@@ -109,30 +109,35 @@ const updateCompanyInformation = async (req, res) => {
     const session = await mongoose.startSession();
     session.startTransaction();
 
-    const { companyId, name, address, phone } = req.body;
-    console.log(companyId, name, address, phone)
+    const { _id, name, address, phone } = req.body;
+    console.log(_id, name, address, phone)
     // const profileImage = req.file;  // Multer stores the file here
     // console.log(req.file)
 
     try {
         // Check if the company exists
-        const companyExist = await Company.findById(companyId);
+        const companyExist = await Company.findById(_id);
         if (!companyExist) {
             throw new BadRequest('Company does not exist');
         }
 
+        let updateData = {};
 
-        // Prepare update data
-        const updateData = { name, address, phone };
-        
-        // If profileImage exists, add it to the update data
-        // if (profileImage) {
-        //     updateData.profileImage = profileImage.path; // Store the file path or use profileImage.filename depending on your needs
-        // }
+        if(name){
+            updateData.name = name;
+        }
 
+        if(address){
+            updateData.address = address;
+        }
+
+        if(phone){
+            updateData.phone = phone;
+        }
+    
         // Update the company information
         const updatedCompany = await Company.findByIdAndUpdate(
-            companyId,
+            _id,
             updateData,
             { new: true, session } // Return the updated document with { new: true }
         );
