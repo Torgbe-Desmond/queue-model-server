@@ -63,32 +63,38 @@ const addServer = async (req, res) => {
     session.startTransaction();
 
     try {
-        const { companyId , serverId } = req.body;
+        const { companyId, serverId } = req.body;
+
         // Validate companyId before proceeding
         if (!companyId) {
             throw new BadRequest('Company ID is required');
         }
 
-        // Fetch the company name based on the provided companyId
-        const getCompanyName = await Company.findById(companyId).session(session);
-        if (!getCompanyName) {
+        // Fetch the company based on the provided companyId
+        const company = await Company.findById(companyId).session(session);
+        if (!company) {
             throw new NotFound('Company not found');
         }
 
         // Create a new server channel
-        const server = await ServerChannel.create([{
-            companyId:getCompanyName._id,
-            serverNumber:serverId
-        }], { session });
+        const server = await ServerChannel.create(
+            [{
+                companyId: company._id,
+                serverNumber: serverId
+            }],
+            { session }
+        );
 
-        getCompanyName.serverChannels.push(server[0]._id)
-        
-        await getCompanyName.save()
+        // Add the new server to the company's serverChannels array
+        company.serverChannels.push(server[0]._id);
+
+        // Save the updated company document
+        await company.save({ session }); // Ensure the save is done within the transaction session
+
         // Commit the transaction if everything goes well
         await session.commitTransaction();
-        res.status(201).json({ server:server[0] });
+        res.status(201).json({ server: server[0] });
     } catch (error) {
-        // Abort the transaction in case of an error
         await session.abortTransaction();
         throw error;
     } finally {
@@ -96,6 +102,7 @@ const addServer = async (req, res) => {
         session.endSession();
     }
 };
+
 
 
 // Delete a server
@@ -115,7 +122,7 @@ const deleteServer = async (req, res) => {
 
         const associatedCompany = await Company.findById(deletedServer.companyId);
         associatedCompany.serverChannels.pull(deletedServer._id);
-
+        
         await associatedCompany.save();
 
         await session.commitTransaction();
