@@ -111,29 +111,37 @@ const deleteServer = async (req, res) => {
     session.startTransaction();
     try {
         const { serverId } = req.params;
-        console.log('serverId',serverId)
-        const server = await ServerChannel.findById(serverId);
-        if (!server) {
-            throw new BadRequest('Server not found')
+        console.log('serverId', serverId);
+
+        // Find the server and delete it
+        const deletedServer = await ServerChannel.findByIdAndDelete(serverId, { session });
+        if (!deletedServer) {
+            throw new BadRequest('Server not found');
         }
-        const deletedServer = await ServerChannel.deleteOne({ _id: serverId }, { session });
 
-        console.log('deleteServer',deletedServer)
-
+        // Find the associated company
         const associatedCompany = await Company.findById(deletedServer.companyId);
-        associatedCompany.serverChannels.pull(deletedServer._id);
-        
-        await associatedCompany.save();
+        if (!associatedCompany) {
+            throw new NotFound('Associated company not found');
+        }
 
+        // Remove the server reference from the company's serverChannels array
+        associatedCompany.serverChannels.pull(deletedServer._id);
+        await associatedCompany.save({ session });
+
+        // Commit the transaction
         await session.commitTransaction();
-        res.status(StatusCodes.OK).json({serverId:serverId});
+        res.status(StatusCodes.OK).json({ serverId });
     } catch (error) {
+        // Abort the transaction in case of an error
         await session.abortTransaction();
-        throw error
+        throw error;
     } finally {
+        // End the session
         session.endSession();
     }
 };
+
 
 module.exports = {
     loginServer,
