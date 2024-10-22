@@ -13,6 +13,7 @@ const registerCompany = async (req, res) => {
     try {
         const { email, password } = req.body;
         let companyExist = await Company.findOne({ email });
+        console.log('company',companyExist)
         if (companyExist) {
             throw new BadRequest('Company already exists')
         }
