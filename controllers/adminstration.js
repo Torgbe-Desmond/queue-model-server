@@ -26,8 +26,6 @@ const registerCompany = async (req, res) => {
             password: hashedPassword
         }],{session});
 
-
-
         await session.commitTransaction();
       // Create JWT payload
         const payload = {
