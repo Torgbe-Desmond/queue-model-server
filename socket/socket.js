@@ -3,7 +3,7 @@ class ConnectionManager {
   constructor(server) {
     this.io = new Server(server, {
       cors: {
-        origin: ["http://localhost:3000", "http://172.20.10.2:4000","https://studio.apollographql.com/sandbox/explorer/"],
+        origin: ["https://queue-it-p53j.vercel.app", "http://172.20.10.2:4000"],
         methods: ["GET", "POST", "DELETE", "PUT"],
       },
     });

@@ -9,7 +9,7 @@
 
   app.use(express.json());
   app.use(cors({
-    origin:["http://localhost:3000"],
+    origin:["https://queue-it-p53j.vercel.app"],
     methods:["POST","DELETE","PUT"],
     credentials:true,
   }))
@@ -27,7 +27,6 @@
   app.use(require('./middleware/notFound'))
   app.use(require('./middleware/errorMiddleware'))
 
-  // console.clear()
 
   const start = async () => {
       try {
@@ -42,4 +41,3 @@
 
   start()
 
-  // console.clear()
