@@ -117,7 +117,7 @@ const deleteServer = async (req, res) => {
         await associatedCompany.save();
 
         await session.commitTransaction();
-        res.status(StatusCodes.OK).json({success:true});
+        res.status(StatusCodes.OK).json({serverId:serverId});
     } catch (error) {
         await session.abortTransaction();
         throw error
