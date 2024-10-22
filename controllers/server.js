@@ -111,6 +111,8 @@ const deleteServer = async (req, res) => {
         }
         const deletedServer = await ServerChannel.deleteOne({ _id: serverId }, { session });
 
+        console.log('deleteServer',deletedServer)
+
         const associatedCompany = await Company.findById(deletedServer.companyId);
         associatedCompany.serverChannels.pull(deletedServer._id);
 
