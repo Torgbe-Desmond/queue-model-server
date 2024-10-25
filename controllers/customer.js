@@ -135,7 +135,7 @@ const editCustomer = async (req, res) => {
             const { originalname, mimetype, size } = req.file;
 
             const existingFile = await File.findById(fileId);
-            if (existingFile) {
+            if (existingFile || !existingFile) {
                 // Update existing file details
                 updatedFile = await File.findByIdAndUpdate(
                     fileId,
@@ -147,30 +147,15 @@ const editCustomer = async (req, res) => {
                 const fileUrl = await updateImage(
                     user_id,
                     req.file,
-                    fileOriginalname,
                     updatedFile.originalname
                 );
                 updatedFile.url = fileUrl;
                 await updatedFile.save();
-            } else {
-                // Handle new file upload and create a new file document
-                newFileObject = await createFile.handleFileCreation(
-                    req.file,
-                    File,
-                    user_id,
-                    uploadFileToStorage,
-                    session
-                );
-
-                userData.image = newFileObject._id;
-                await userData.save();
             }
         }
 
         // Build the response object based on the changes made
-        if (newFileObject) {
-            responseObject = { newUsername: updatedUser.username, updatedFile: newFileObject };
-        } else if (updatedFile) {
+         if (updatedFile) {
             responseObject = { newUsername: updatedUser.username, updatedFile };
         } else if (noFileUpdates) {
             responseObject = { newUsername: updatedUser.username, updatedFile: noFileUpdates };
