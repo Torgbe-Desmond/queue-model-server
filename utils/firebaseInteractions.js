@@ -1,18 +1,16 @@
 // Import required modules and configurations
 const firebase = require('firebase/app'); // Firebase app initialization
-const admin = require("firebase-admin"); // Firebase Admin SDK for server-side operations
 require('dotenv').config(); // Load environment variables from .env file
 const {
-    getStorage, // Fun077777777777777777777777777777777777777777777777777777777777777777ction to get the storage service
+    getStorage, // Function to get the storage service
     ref, // Function to create a reference to a storage location
     getDownloadURL, // Function to get the download URL of a file
     uploadBytesResumable, // Function for uploading files with resumable support
     deleteObject, // Function to delete a file from storage
-    getBytes // Function to get the bytes of a file from storage
 } = require('firebase/storage');
 
 
-
+// Initialize Firebase with the provided configuration
 const firebaseConfig = {
     apiKey: process.env.FIREBASE_API_KEY,
     authDomain: process.env.FIREBASE_AUTH_DOMAIN,
@@ -25,7 +23,8 @@ const firebaseConfig = {
 
 // Initialize Firebase app
 firebase.initializeApp(firebaseConfig);
-const storage = getStorage(); // Get the storage 
+const storage = getStorage(); // Get the storage service
+
 
 
 const uploadFileToStorage = async (user_id, file, originalname) => {
