@@ -50,6 +50,7 @@ class ConnectionManager {
 
         // handle sending active server to appropriate administration dashboard
         this.emitActiveServers()
+        this.fireNumberOFCustomersSocket()
   
 
         const idleChannels   = this.currentIdleChannels[companyId]?.idleChannels || [];
@@ -71,10 +72,8 @@ class ConnectionManager {
         
             this.fireUserSocket(nextAvailableCustomer, channelInfo);
             this.fireServerSocket(nextAvailableServer, customerInfo);
-            this.fireNumberOFCustomersSocket(nextAvailableCustomer,companyId)
         
             this.customersBeingServed[companyId][nextAvailableServer] = nextAvailableCustomer;
-            this.customersBeingServedQueueNumber[companyId][nextAvailableCustomer] = waitingInLineCustomers.length + 1;
 
           }
         }
@@ -121,10 +120,21 @@ class ConnectionManager {
   }
 
   // Number of customers
-  fireNumberOFCustomersSocket(customerId,companyId){
-    const socketId = this.userSocketMap[customerId];
-    const customerQueueNumber =  this.customersBeingServedQueueNumber[companyId][customerId]
-    this.io.to(socketId).emit("serverWarning",{customerQueueNumber});
+  fireNumberOFCustomersSocket(){
+    for (const companyId of Object.keys(this.adminSocketMap)){
+
+       const waitingCustomers =  this.customersByCompany[companyId].waitingInLineCustomers || [];
+
+       waitingCustomers.forEach(customer=>{
+
+         const socketId = this.userSocketMap[customer];
+         const customerQueueNumber = this.customersByCompany[companyId]?.waitingInLineCustomers?.indexOf(customer) + 2; 
+         this.io.to(socketId).emit("customerNumber",{queueNumber:customerQueueNumber});
+
+      })
+
+    }
+  
   }
 
     // Emit a status message to the server
