@@ -136,6 +136,7 @@ const editCustomer = async (req, res) => {
                 );
             } else {
                 // Create a new file document if no fileId exists
+                console.log('entered existing')
                 newFileObject = await File.create(
                     [{ originalname: updatedName ? updatedName.username : userData.username, size, url: fileUrl, mimetype }],
                     { session }
@@ -145,14 +146,16 @@ const editCustomer = async (req, res) => {
             responseObject.updatedFile = newFileObject;
         }
 
+
+        console.log('responseObject',responseObject)
+
         // Commit transaction and respond with updated data
         await session.commitTransaction();
         res.status(StatusCodes.OK).json(responseObject);
 
     } catch (error) {
         await session.abortTransaction();
-        console.error("Error during transaction:", error);
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: error.message });
+        throw error;
     } finally {
         session.endSession();
     }
