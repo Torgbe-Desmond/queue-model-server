@@ -146,7 +146,9 @@ const editCustomer = async (req, res) => {
                     [{ originalname: updatedName ? updatedName.username : userData.username, size, url: fileUrl, mimetype,user_id }],
                     { session }
                 );
-                newFileObject = newFileObject[0]; // Ensure it’s a single document in response
+                newFileObject = newFileObject[0];
+                userData.image =  newFileObject[0]._id;
+                await userData.save()
             }
             
             responseObject.updatedFile = newFileObject;
