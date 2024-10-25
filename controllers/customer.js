@@ -105,49 +105,59 @@ const editCustomer = async (req, res) => {
 
     try {
         const { newUsername, user_id, fileId } = req.body;
-        let updatedName, newFileObject, noFileUpdates, responseObject = {}, customerObject = {};
+        let updatedName, newFileObject, responseObject = {};
 
         const userData = await Customer.findById(user_id);
-
         if (!userData) {
             throw new BadRequest('User not found, please try again');
         }
 
+        // Update username if newUsername is provided
         if (newUsername) {
-            customerObject.username = newUsername;
-
             updatedName = await Customer.findByIdAndUpdate(
                 user_id,
-                { ...customerObject },
+                { username: newUsername },
                 { new: true, session }
             );
-         
+            responseObject.newUsername = updatedName.username;
         }
 
-        if(req.file){
-            const { size, mimetype} = req.file;
-            const fileExist = await File.find({user_id})
-            const url = await updateImage(user_id,req.file,user_id)
-            if(fileExist){
-                newFileObject =  await File.findByIdAndUpdate(fileId,{url})
+        // Handle file update or creation if a file is uploaded
+        if (req.file) {
+            const { size, mimetype } = req.file;
+            const fileUrl = await updateImage(user_id, req.file, user_id);
+
+            if (fileId) {
+                // Update existing file document if fileId exists
+                newFileObject = await File.findByIdAndUpdate(
+                    fileId,
+                    { url: fileUrl, originalname: updatedName ? updatedName.username : userData.username, size, mimetype },
+                    { new: true, session }
+                );
             } else {
-                newFileObject = await File.create([{originalname:updatedName.username,size,url,mimetype}],{session})
+                // Create a new file document if no fileId exists
+                newFileObject = await File.create(
+                    [{ originalname: updatedName ? updatedName.username : userData.username, size, url: fileUrl, mimetype }],
+                    { session }
+                );
+                newFileObject = newFileObject[0]; // Ensure it’s a single document in response
             }
+            responseObject.updatedFile = newFileObject;
         }
 
-        responseObject.newUsername = updatedName.username;
-        responseObject.updatedFile = newFileObject[0];
-
+        // Commit transaction and respond with updated data
         await session.commitTransaction();
         res.status(StatusCodes.OK).json(responseObject);
 
     } catch (error) {
         await session.abortTransaction();
-        throw error;
+        console.error("Error during transaction:", error);
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: error.message });
     } finally {
         session.endSession();
     }
 };
+
 
 module.exports = {
     registerCustomer,
