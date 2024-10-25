@@ -105,8 +105,9 @@ const editCustomer = async (req, res) => {
 
     try {
         const { newUsername, user_id, fileId } = req.body;
-        let updatedName, newFileObject, responseObject = {};
+        let responseObject = {};
 
+        // Find the customer
         const userData = await Customer.findById(user_id);
         if (!userData) {
             throw new BadRequest('User not found, please try again');
@@ -114,48 +115,52 @@ const editCustomer = async (req, res) => {
 
         // Update username if newUsername is provided
         if (newUsername) {
-            updatedName = await Customer.findByIdAndUpdate(
+            const updatedUser = await Customer.findByIdAndUpdate(
                 user_id,
                 { username: newUsername },
                 { new: true, session }
             );
-            responseObject.newUsername = updatedName.username;
+            responseObject.newUsername = updatedUser.username;
         }
 
         // Handle file update or creation if a file is uploaded
         if (req.file) {
             const { size, mimetype } = req.file;
-            const fileUrl = await updateImage(user_id, req.file, user_id);
+            const fileUrl = await updateImage(user_id, req.file, user_id); // Assuming this function handles the upload and returns the file URL
 
             if (fileId && mongoose.Types.ObjectId.isValid(fileId)) {
                 // Update existing file document
-                newFileObject = await File.findByIdAndUpdate(
+                const updatedFile = await File.findByIdAndUpdate(
                     fileId,
                     {
                         url: fileUrl,
-                        originalname: updatedName ? updatedName.username : userData.username,
+                        originalname: newUsername || userData.username, // Use the new username or fallback to the current one
                         size,
                         user_id,
                         mimetype,
                     },
                     { new: true, session }
                 );
+                responseObject.updatedFile = updatedFile;
             } else {
-                // Create a new file document
-                newFileObject = await File.create(
-                    [{ originalname: updatedName ? updatedName.username : userData.username, size, url: fileUrl, mimetype,user_id }],
+                // Create a new file document if fileId is not valid or not provided
+                const newFileObject = await File.create(
+                    [{
+                        originalname: newUsername || userData.username,
+                        size,
+                        url: fileUrl,
+                        mimetype,
+                        user_id,
+                    }],
                     { session }
                 );
-                newFileObject = newFileObject[0];
-                userData.image =  newFileObject[0]._id;
-                await userData.save()
+
+                // Save the newly created file ID to the user
+                userData.image = newFileObject[0]._id; // Assuming `image` is the field that stores the file reference
+                await userData.save({ session }); // Ensure userData is saved in the same session
+                responseObject.newFile = newFileObject[0];
             }
-            
-            responseObject.updatedFile = newFileObject;
         }
-
-
-        console.log('responseObject',responseObject)
 
         // Commit transaction and respond with updated data
         await session.commitTransaction();
@@ -163,7 +168,8 @@ const editCustomer = async (req, res) => {
 
     } catch (error) {
         await session.abortTransaction();
-        throw error;
+        console.error('Error occurred while editing customer:', error);
+        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: error.message });
     } finally {
         session.endSession();
     }
