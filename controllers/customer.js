@@ -126,8 +126,13 @@ const editCustomer = async (req, res) => {
 
         if(req.file){
             const { size, mimetype} = req.file;
-            const url = await updateImage(user_id,req.file,updatedName.username)
-            newFileObject = await File.create([{originalname:updatedName.username,size,url,mimetype}],{session})
+            const fileExist = await File.find({user_id})
+            const url = await updateImage(user_id,req.file,user_id)
+            if(fileExist){
+                newFileObject =  await File.findByIdAndUpdate(fileId,{url})
+            } else {
+                newFileObject = await File.create([{originalname:updatedName.username,size,url,mimetype}],{session})
+            }
         }
 
         responseObject.newUsername = updatedName.username;
@@ -138,7 +143,7 @@ const editCustomer = async (req, res) => {
 
     } catch (error) {
         await session.abortTransaction();
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: error.message });
+        throw error;
     } finally {
         session.endSession();
     }
