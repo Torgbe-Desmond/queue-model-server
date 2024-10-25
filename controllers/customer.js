@@ -126,7 +126,7 @@ const editCustomer = async (req, res) => {
         if (req.file) {
             const { size, mimetype } = req.file;
             const fileUrl = await updateImage(user_id, req.file, user_id);
-            
+
             if (fileId && mongoose.Types.ObjectId.isValid(fileId)) {
                 // Update existing file document
                 newFileObject = await File.findByIdAndUpdate(
@@ -135,6 +135,7 @@ const editCustomer = async (req, res) => {
                         url: fileUrl,
                         originalname: updatedName ? updatedName.username : userData.username,
                         size,
+                        user_id,
                         mimetype,
                     },
                     { new: true, session }
@@ -142,7 +143,7 @@ const editCustomer = async (req, res) => {
             } else {
                 // Create a new file document
                 newFileObject = await File.create(
-                    [{ originalname: updatedName ? updatedName.username : userData.username, size, url: fileUrl, mimetype }],
+                    [{ originalname: updatedName ? updatedName.username : userData.username, size, url: fileUrl, mimetype,user_id }],
                     { session }
                 );
                 newFileObject = newFileObject[0]; // Ensure it’s a single document in response
