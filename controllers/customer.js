@@ -126,23 +126,28 @@ const editCustomer = async (req, res) => {
         if (req.file) {
             const { size, mimetype } = req.file;
             const fileUrl = await updateImage(user_id, req.file, user_id);
-
-            if (fileId) {
-                // Update existing file document if fileId exists
+            
+            if (fileId && mongoose.Types.ObjectId.isValid(fileId)) {
+                // Update existing file document
                 newFileObject = await File.findByIdAndUpdate(
                     fileId,
-                    { url: fileUrl, originalname: updatedName ? updatedName.username : userData.username, size, mimetype },
+                    {
+                        url: fileUrl,
+                        originalname: updatedName ? updatedName.username : userData.username,
+                        size,
+                        mimetype,
+                    },
                     { new: true, session }
                 );
             } else {
-                // Create a new file document if no fileId exists
-                console.log('entered existing')
+                // Create a new file document
                 newFileObject = await File.create(
                     [{ originalname: updatedName ? updatedName.username : userData.username, size, url: fileUrl, mimetype }],
                     { session }
                 );
                 newFileObject = newFileObject[0]; // Ensure it’s a single document in response
             }
+            
             responseObject.updatedFile = newFileObject;
         }
 
