@@ -28,47 +28,47 @@ firebase.initializeApp(firebaseConfig);
 const storage = getStorage(); // Get the storage 
 
 
-
 const uploadFileToStorage = async (user_id, file, originalname) => {
     try {
-        console.log('inside to storage')
-        const { mimetype, buffer } = file; // Destructure the file to get its mimetype and buffer
-        const storageRef = ref(storage, `customers/${user_id}/${originalname}`); // Create a reference to the storage location
-        const metadata = {
-            contentType: mimetype // Set the content type for the uploaded file
-        };
+        console.log('Uploading to storage');
+        const { mimetype, buffer } = file;
+        const storageRef = ref(storage, `customers/${user_id}/${originalname}`);
+        const metadata = { contentType: mimetype };
+
         // Upload the file with resumable upload
         await uploadBytesResumable(storageRef, buffer, metadata);
+
         // Get the download URL for the uploaded file
-        const fileUrl = await getDownloadURL(storageRef);
-        return fileUrl; // Return the download URL
+        return await getDownloadURL(storageRef);
     } catch (error) {
-        console.log('inside to storage error')
-        throw error; // Throw error if upload fails
+        console.error('Error uploading file:', error);
+        throw error; 
     }
 };
 
-
-async function updateImage(user_id, file, originalname, newoOriginalname) {
+const updateImage = async (user_id, file, originalname) => {
     try {
-        console.log('inside to update')
+        const storageRef = ref(storage, `customers/${user_id}/${originalname}`);
+        
+        // Check if the file exists by attempting to delete it
+        try {
+            await deleteObject(storageRef);
+            console.log('Existing file deleted successfully');
+        } catch (deleteError) {
+            if (deleteError.code === 'storage/object-not-found') {
+                console.log('No existing file to delete, proceeding with upload');
+            } else {
+                console.error('Error deleting existing file:', deleteError);
+                throw deleteError; // Re-throw if it's an unexpected error
+            }
+        }
 
-        const storageRef = ref(storage, `customers/${user_id}/${originalname}`); // Reference to the existing image
-
-        // Delete the existing file before uploading the new one
-        await deleteObject(storageRef);
-
-        // Upload the new file and get the response (download URL)
-        const uploadResponse = await uploadFileToStorage(user_id, file, newoOriginalname);
-        console.log('inside to update end')
-
-        return uploadResponse; // Return the new file's download URL
+        // Upload the new file
+        return await uploadFileToStorage(user_id, file, originalname);
     } catch (error) {
-        console.log('inside to update error')
-
-        throw error; // Throw error if update fails
+        console.error('Error updating image:', error);
+        throw error; 
     }
 };
-
 
 module.exports = { uploadFileToStorage,updateImage }

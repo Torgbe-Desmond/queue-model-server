@@ -6,8 +6,7 @@ const fileSchema = new Schema({
     url: { type: String, required: true },
     user_id: { type: String, required: true },
     mimetype: { type: String, default: 'File' }, // Set default value to 'file'
-    lastUpdated: { type: Date, default: Date.now }, // Adding lastUpdated field
     size: { type: Number, default: 0 } // Adding size field
-});
+},{timestamps:true});
 
 module.exports = mongoose.model('File', fileSchema);

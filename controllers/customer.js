@@ -104,64 +104,34 @@ const editCustomer = async (req, res) => {
     session.startTransaction();
 
     try {
-        const { newUsername, user_id, originalname: fileOriginalname, fileId } = req.body;
-        let updatedFile, newFileObject, noFileUpdates, responseObject = {}, customerObject = {};
+        const { newUsername, user_id, fileId } = req.body;
+        let updatedName, newFileObject, noFileUpdates, responseObject = {}, customerObject = {};
 
-        // Update username if provided
-        if (newUsername) {
-            customerObject.username = newUsername;
-        }
-
-        // Check if the user exists
         const userData = await Customer.findById(user_id);
+
         if (!userData) {
             throw new BadRequest('User not found, please try again');
         }
 
-        // Update the username in the database
-        const updatedUser = await Customer.findByIdAndUpdate(
-            user_id,
-            { ...customerObject },
-            { new: true, session }
-        );
+        if (newUsername) {
+            customerObject.username = newUsername;
 
-        // If no new file is uploaded, use the existing file
-        if (updatedUser && !req.file) {
-            noFileUpdates = await File.findById(fileId);
+            updatedName = await Customer.findByIdAndUpdate(
+                user_id,
+                { ...customerObject },
+                { new: true, session }
+            );
+         
         }
 
-        // If a file is uploaded, update or create a new file entry
-        if (req.file) {
-            const { originalname, mimetype, size } = req.file;
-
-            const existingFile = await File.findById(fileId);
-            if (existingFile || !existingFile) {
-                // Update existing file details
-                updatedFile = await File.findByIdAndUpdate(
-                    fileId,
-                    { originalname, mimetype, size },
-                    { new: true, session }
-                );
-
-                // Update file URL in storage (ensure `updateImage` is well implemented)
-                const fileUrl = await updateImage(
-                    user_id,
-                    req.file,
-                    updatedFile.originalname
-                );
-                updatedFile.url = fileUrl;
-                await updatedFile.save();
-            }
+        if(req.file){
+            const { size, mimetype} = req.file;
+            const url = await updateImage(user_id,req.file,updatedName.username)
+            newFileObject = await File.create([{originalname:updatedName.username,size,url,mimetype}],{session})
         }
 
-        // Build the response object based on the changes made
-         if (updatedFile) {
-            responseObject = { newUsername: updatedUser.username, updatedFile };
-        } else if (noFileUpdates) {
-            responseObject = { newUsername: updatedUser.username, updatedFile: noFileUpdates };
-        }
-
-        console.log('responseObject',responseObject)
+        responseObject.newUsername = updatedName.username;
+        responseObject.updatedFile = newFileObject[0];
 
         await session.commitTransaction();
         res.status(StatusCodes.OK).json(responseObject);
