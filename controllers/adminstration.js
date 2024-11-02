@@ -13,7 +13,7 @@ const registerCompany = async (req, res) => {
     try {
         const { email, password } = req.body;
         let companyExist = await Company.findOne({ email });
-        console.log('company',companyExist)
+        
         if (companyExist) {
             throw new BadRequest('Company already exists')
         }
@@ -56,7 +56,7 @@ const loginCompany = async (req, res) => {
         // Find the company by email
         const company = await Company.findOne({ email });
         if (!company) {
-            return res.status(400).json({ message: 'Invalid credentials' });
+            throw new BadRequest('Invalid credentials')
         }
 
         // Check if the password matches the hashed password
@@ -110,9 +110,6 @@ const updateCompanyInformation = async (req, res) => {
     session.startTransaction();
 
     const { _id, name, address, phone } = req.body;
-    console.log(_id, name, address, phone)
-    // const profileImage = req.file;  // Multer stores the file here
-    // console.log(req.file)
 
     try {
         // Check if the company exists

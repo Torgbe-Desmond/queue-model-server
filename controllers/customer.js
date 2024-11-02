@@ -44,7 +44,7 @@ const registerCustomer = async (req, res) => {
             }
         };
 
-        const { password: _, ...customerData } = newCustomer.toObject(); // Convert mongoose document to plain object and exclude password
+        const { password: _, ...customerData } = newCustomer.toObject(); 
 
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
         // Save the customer to the database
@@ -85,7 +85,7 @@ const loginCustomer = async (req, res) => {
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' });
 
         // Remove password from customer object before returning
-        const { password: _, ...customerData } = customer.toObject(); // Convert mongoose document to plain object and exclude password
+        const { password: _, ...customerData } = customer.toObject(); 
 
         // Return token and customer data without password
         res.status(StatusCodes.OK).json({ token: token, customer: customerData });
@@ -123,7 +123,7 @@ const editCustomer = async (req, res) => {
         // Handle file update or creation if a file is uploaded
         if (req.file) {
             const { size, mimetype } = req.file;
-            const fileUrl = await updateImage(user_id, req.file, user_id); // Assuming this function handles the upload and returns the file URL
+            const fileUrl = await updateImage(user_id, req.file, user_id); 
 
             if (fileId && mongoose.Types.ObjectId.isValid(fileId)) {
                 // Update existing file document
@@ -131,7 +131,7 @@ const editCustomer = async (req, res) => {
                     fileId,
                     {
                         url: fileUrl,
-                        originalname: newUsername || userData.username, // Use the new username or fallback to the current one
+                        originalname: newUsername || userData.username, 
                         size,
                         user_id,
                         mimetype,
@@ -153,8 +153,8 @@ const editCustomer = async (req, res) => {
                 );
 
                 // Save the newly created file ID to the user
-                userData.image = newFileObject[0]._id; // Assuming `image` is the field that stores the file reference
-                await userData.save({ session }); // Ensure userData is saved in the same session
+                userData.image = newFileObject[0]._id; 
+                await userData.save({ session }); 
                 responseObject.newFile = newFileObject[0];
             }
         }
@@ -178,6 +178,4 @@ module.exports = {
     loginCustomer,
     editCustomer
 };
-// file, File, user_id, uploadFile, session
 
-// '66fc98131f042d09cc636584'

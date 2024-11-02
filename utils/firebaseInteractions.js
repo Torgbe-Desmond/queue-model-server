@@ -48,7 +48,6 @@ const uploadFileToStorage = async (user_id, file, originalname) => {
 const updateImage = async (user_id, file, originalname) => {
     try {
         const storageRef = ref(storage, `customers/${user_id}/${originalname}`);
-        
         // Check if the file exists by attempting to delete it
         try {
             await deleteObject(storageRef);

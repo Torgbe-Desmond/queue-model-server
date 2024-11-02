@@ -1,30 +1,36 @@
+const { Server } = require("socket.io");
+const http = require('http');
+const express = require('express');
+const app = express();
+const server = http.createServer(app);
+const Company = require("../models/company");
+const Customer = require("../models/customer");
 
 class ConnectionManager {
   constructor(server) {
     this.io = new Server(server, {
       cors: {
-        origin: ["https://queue-it-p53j.vercel.app", "http://172.20.10.2:4000","http://localhost:3000"],
+        origin: ["https://queue-it-p53j.vercel.app", "http://172.20.10.2:4000", "http://localhost:3000"],
         methods: ["GET", "POST", "DELETE", "PUT"],
       },
     });
 
-    this.userSocketMap = {}; // Maps userId to socketId
+    this.userSocketMap = {};
     this.adminSocketMap = {};
-    this.serverSocketMap = {}; // Maps serverId to socketId
-    this.registeredCompanies = new Set(); // Set to store unique company IDs
-    this.customersByCompany = {}; // Stores customers grouped by companyId
-    this.busyChannels = {}; // Structure to track busy servers and their customers
-    this.availableServers = {}; // Stores available servers per company
-    this.currentIdleChannels = {}; // Stores idle channels per company
+    this.serverSocketMap = {};
+    this.registeredCompanies = new Set();
+    this.customersByCompany = {};
+    this.busyChannels = {};
+    this.availableServers = {};
+    this.currentIdleChannels = {};
     this.customersBeingServed = {};
-    this.customersBeingServedQueueNumber = {}; // Tracks queue numbers for customers being served
+    this.customersBeingServedQueueNumber = {};
 
     this.initializeState();
     this.setupSocketListeners();
-    this.serverEventHandler(); // Start periodic check
+    // this.serverEventHandler();
   }
 
-  // Initialize state for companies
   async initializeState() {
     const companies = await Company.find({});
     companies.forEach(company => {
@@ -35,59 +41,44 @@ class ConnectionManager {
       this.availableServers[companyId] = { onlineChannels: [] };
       this.currentIdleChannels[companyId] = { idleChannels: [] };
       this.customersBeingServed[companyId] = {};
-      this.customersBeingServedQueueNumber[companyId] = {}; // Initialize queue numbers
-
+      this.customersBeingServedQueueNumber[companyId] = {};
     });
   }
 
-  // Periodically check for idle servers andi if any assign any available customer to that
-  // server
   serverEventHandler() {
-    setInterval(async () => {
-      for (const companyId in this.availableServers) {
-
-        // handle sending active server to appropriate administration dashboard
-        this.emitActiveServers()
-        this.fireNumberOFCustomersSocket()
-  
-        const idleChannels   = this.currentIdleChannels[companyId]?.idleChannels || [];
-        const onlineChannels = this.availableServers[companyId]?.onlineChannels || [];
-        const waitingInLineCustomers = this.customersByCompany[companyId].waitingInLineCustomers || []
-
-        if (onlineChannels.length > 0 && idleChannels.length > 0) {
-
-          if (waitingInLineCustomers.length > 0) {
-
-            const nextAvailableCustomer = waitingInLineCustomers.shift();
-            const nextAvailableServer = idleChannels.shift();
-
-            console.log(nextAvailableCustomer)
-            console.log(nextAvailableServer)
-
-            const customerInfo = await Customer.findById(nextAvailableCustomer).select('-password').populate('image');
-            const channelInfo  = await Channel.findById(nextAvailableServer).select('-password');
-        
-            this.fireUserSocket(nextAvailableCustomer, channelInfo);
-            this.fireServerSocket(nextAvailableServer, customerInfo);
-        
-            this.customersBeingServed[companyId][nextAvailableServer] = nextAvailableCustomer;
-
-          }
-        }
-        
-      }
-
-      // Periodic log for debugging
-      console.log('Every 7 seconds:');
+    setInterval(() => {
+      console.log('Periodic check at 7 seconds:');
       console.log('Customers by Company:', this.customersByCompany);
       console.log('Idle Channels:', this.currentIdleChannels);
       console.log('Available Channels:', this.availableServers);
       console.log('Serving Channels:', this.customersBeingServed);
-      console.log('Logged in companies', this.adminSocketMap)
     }, 7000);
   }
-
-  // Emit a message to a user
+  
+  async checkAndAssignCustomersToServers(companyId) {
+    const idleChannels = this.currentIdleChannels[companyId]?.idleChannels || [];
+    const waitingInLineCustomers = this.customersByCompany[companyId]?.waitingInLineCustomers || [];
+  
+    // Fire customer socket update
+    this.fireNumberOFCustomersSocket();
+    this.emitActiveServers();
+  
+    while (waitingInLineCustomers.length > 0 && idleChannels.length > 0) {
+      const nextAvailableCustomer = waitingInLineCustomers.shift(); // Get the next customer
+      const nextAvailableServer = idleChannels.shift(); // Get the next available server
+  
+      const customerInfo = await Customer.findById(nextAvailableCustomer).select('-password').populate('image');
+      const channelInfo = await Channel.findById(nextAvailableServer).select('-password');
+  
+      this.fireUserSocket(nextAvailableCustomer, channelInfo);
+      this.fireServerSocket(nextAvailableServer, customerInfo);
+  
+      // Store the customer being served
+      this.customersBeingServed[companyId][nextAvailableServer] = nextAvailableCustomer;
+  
+    }
+  }
+  
   fireUserSocket(userId, channelInfo) {
     const socketId = this.userSocketMap[userId];
     if (socketId) {
@@ -95,7 +86,6 @@ class ConnectionManager {
     }
   }
 
-  // Emit a message to a server
   fireServerSocket(serverId, customerInfo) {
     const socketId = this.serverSocketMap[serverId];
     if (socketId) {
@@ -103,168 +93,114 @@ class ConnectionManager {
     }
   }
 
-   // Emit a warning message to the server
-  fireAdminSocket(companyId, adminInfomation) {
+  fireAdminSocket(companyId, adminInformation) {
     const socketId = this.adminSocketMap[companyId];
     if (socketId) {
-      this.io.to(socketId).emit("online",adminInfomation);
+      this.io.to(socketId).emit("online", adminInformation);
     }
   }
-  // Emit a warning message to the server
-  fireWarningSocket(serverId,warningMessage){
+
+  fireWarningSocket(serverId, warningMessage) {
     const socketId = this.serverSocketMap[serverId];
-    this.io.to(socketId).emit("serverWarning",warningMessage);
+    this.io.to(socketId).emit("serverWarning", warningMessage);
   }
 
-  // Number of customers
-  fireNumberOFCustomersSocket(){
-    for (const companyId of Object.keys(this.adminSocketMap)){
-
-       const waitingCustomers =  this.customersByCompany[companyId].waitingInLineCustomers || [];
-
-       waitingCustomers.forEach(customer=>{
-
-         const socketId = this.userSocketMap[customer];
-         const customerQueueNumber = this.customersByCompany[companyId]?.waitingInLineCustomers?.indexOf(customer) + 2; 
-         this.io.to(socketId).emit("customerNumber",{queueNumber:customerQueueNumber});
-
-      })
-
+  fireNumberOFCustomersSocket() {
+    for (const companyId of Object.keys(this.adminSocketMap)) {
+      const waitingCustomers = this.customersByCompany[companyId].waitingInLineCustomers || [];
+      waitingCustomers.forEach(customer => {
+        const socketId = this.userSocketMap[customer];
+        const customerQueueNumber = this.customersByCompany[companyId]?.waitingInLineCustomers?.indexOf(customer) + 2;
+        this.io.to(socketId).emit("customerNumber", { queueNumber: customerQueueNumber });
+      });
     }
-  
   }
 
-    // Emit a status message to the server
-    fireStatusSocket(serverId,statusMessage){
-      const socketId = this.serverSocketMap[serverId];
-      this.io.to(socketId).emit("serverIdle",statusMessage);
-    }
-
-   // to send message outside this class
-   getUserSocketMap(userId){
-     return this.userSocketMap[userId]
-   }
-
-   // to use the io outside this class
-   getIO() {
-    return this.io;
+  fireStatusSocket(serverId, statusMessage) {
+    const socketId = this.serverSocketMap[serverId];
+    this.io.to(socketId).emit("serverIdle", statusMessage);
   }
 
-  // emit active servers to their corresponding company
   emitActiveServers() {
-    // Iterate over adminId keys in availableServers
     for (const companyId of Object.keys(this.adminSocketMap)) {
       if (this.registeredCompanies.has(companyId)) {
-          const activeChannels = this.availableServers[companyId].onlineChannels;
-          console.log(activeChannels)
-          let activeServers = []
-          activeChannels.forEach(channel => {
-            activeServers.push(channel)
-            this.fireAdminSocket(companyId, { active:activeServers});
+        const activeChannels = this.availableServers[companyId].onlineChannels;
+        let activeServers = [];
+        activeChannels.forEach(channel => {
+          activeServers.push(channel);
+          this.fireAdminSocket(companyId, { active: activeServers });
         });
       }
     }
   }
 
+  handleAdmistration(socket, adminData) {
+    const { companyId } = adminData;
+    if (companyId) {
+      this.adminSocketMap[companyId] = socket.id;
+    }
+  }
 
-handleAdmistration(socket,adminData){
-  const { companyId } = adminData;
-  if (typeof companyId !== 'undefined') {
-       this.adminSocketMap[companyId] = socket.id;
-  }ss
-} 
-  
+  handleServerConnection(socket, serverData) {
+    const { serverId, companyId } = serverData;
+    if (serverId && companyId) {
+      this.serverSocketMap[serverId] = socket.id;
 
-// Handle server connections
-handleServerConnection(socket, serverData) {
-  const { serverId, companyId } = serverData;
-
-  if (typeof serverId !== 'undefined' && typeof companyId !== 'undefined') {
-
-    this.serverSocketMap[serverId] = socket.id; // Map server to socket ID
-
-    if (this.registeredCompanies.has(companyId)) {
-    
-      if(!this.availableServers[companyId]?.onlineChannels.includes(serverId)){
+      if (this.registeredCompanies.has(companyId)) {
         const idleChannels = this.currentIdleChannels[companyId]?.idleChannels || [];
-        if (!idleChannels.includes(serverId)) {  
-             idleChannels.push(serverId);
+        if (!idleChannels.includes(serverId)) {
+          idleChannels.push(serverId);
+        }
+
+        const availableServers = this.availableServers[companyId]?.onlineChannels || [];
+        if (!availableServers.includes(serverId)) {
+          availableServers.push(serverId);
         }
       }
+    }
+  }
 
-      const availableServers = this.availableServers[companyId]?.onlineChannels || [];
-      if (!availableServers.includes(serverId)) {
-          availableServers.push(serverId);
+  async handleClientConnection(socket, clientData) {
+    const { companyId, userId } = clientData;
+    if (userId && companyId) {
+      this.userSocketMap[userId] = socket.id;
+      const waitingCustomers = this.customersByCompany[companyId]?.waitingInLineCustomers || [];
+      if (!waitingCustomers.includes(userId)) {
+        waitingCustomers.push(userId);
       }
-
-
     }
   }
-}
 
-// Handle client/user connections
-async handleClientConnection(socket, clientData) {
-  const { companyId, userId } = clientData;
-  if (typeof userId !== 'undefined' && typeof companyId !== 'undefined') {
-    this.userSocketMap[userId] = socket.id;
-    const waitingCustomers = this.customersByCompany[companyId]?.waitingInLineCustomers || [];
-    if (!waitingCustomers.includes(userId)) {
-      waitingCustomers.push(userId);
-    }
-  }
-}
-
-// Handle add server to idle customers
-async handleStartService(data) {
-  const { companyId, serverId } = data;
-  if (typeof serverId !== 'undefined' && typeof companyId !== 'undefined') {
-    const idleChannels = this.currentIdleChannels[companyId].idleChannels;
-    
-    // Check if the server is already serving a customer
-    if (this.customersBeingServed[companyId][serverId]) {
-      console.warn(`Server ${serverId} is already serving a customer!`);
-      
-      // Emit warning to the server
-        this.fireWarningSocket(serverId, { message: `Server ${serverId} is already serving a customer!` })
-    } else {
-      // Add the server to the idle list if it's not already there
-      if (!idleChannels.includes(serverId)) {
+  async handleStartService(data) {
+    const { companyId, serverId } = data;
+    if (serverId && companyId) {
+      const idleChannels = this.currentIdleChannels[companyId].idleChannels;
+      if (this.customersBeingServed[companyId][serverId]) {
+        this.fireWarningSocket(serverId, { message: `Server ${serverId} is already serving a customer!` });
+      } else {
+        if (!idleChannels.includes(serverId)) {
           idleChannels.push(serverId);
-
-        // Emit idle status to the server
-          this.fireStatusSocket(serverId,{ message: `Server ${serverId} is now idle for company ${companyId}` })
+          this.fireStatusSocket(serverId, { message: `Server ${serverId} is now idle for company ${companyId}` });
+        }
       }
     }
   }
-}
 
-// Handle the end of service
-async handleEndService(data) {
-  const { companyId, serverId } = data;
-  const idleChannels = this.currentIdleChannels[companyId].idleChannels;
+  async handleEndService(data) {
+    const { companyId, serverId } = data;
+    const idleChannels = this.currentIdleChannels[companyId].idleChannels;
 
-  // Remove the server from the busy list and mark it as idle
-  if (this.customersBeingServed[companyId][serverId]) {
-    console.log(serverId)
-    delete this.customersBeingServed[companyId][serverId];
-    idleChannels.push(serverId);
-
-    console.log(`Server ${serverId} is now idle for company ${companyId}`);
-
-    // Emit idle status to the server
-    this.fireStatusSocket(serverId,{ message: `Server ${serverId} is now idle for company ${companyId}` })
-  } else {
-    console.warn(`Server ${serverId} is not currently serving any customer.`);
-    
-    // Emit warning if the server is not serving any customer
-    this.fireWarningSocket(serverId,{ message: `Server ${serverId} is not currently serving any customer.` })
+    if (this.customersBeingServed[companyId][serverId]) {
+      delete this.customersBeingServed[companyId][serverId];
+      idleChannels.push(serverId);
+      this.fireStatusSocket(serverId, { message: `Server ${serverId} is now idle for company ${companyId}` });
+    } else {
+      this.fireWarningSocket(serverId, { message: `Server ${serverId} is not currently serving any customer.` });
+    }
   }
-}
 
-
-  // Handle socket disconnection
   handleDisconnection(socket) {
-    console.log('handle disconnection success')
+    console.log('handle disconnection success');
     for (const [userId, socketId] of Object.entries(this.userSocketMap)) {
       if (socketId === socket.id) {
         delete this.userSocketMap[userId];
@@ -297,65 +233,49 @@ async handleEndService(data) {
         break;
       }
     }
+
+    for (const [companyId, socketId] of Object.entries(this.adminSocketMap)) {
+      if (socketId === socket.id) {
+        delete this.adminSocketMap[companyId];
+        break;
+      }
+    }
   }
 
-  // Setup socket listeners
   setupSocketListeners() {
     this.io.on("connection", (socket) => {
-        console.log("A user connected:", socket.id);
-
-        const clientData = socket.handshake.query.clientData;
-        const serverData = socket.handshake.query.serverData;
-        const adminData = socket.handshake.query.adminData;
-
-
-        // Handle server data
-        if (serverData) {
-            try {
-                const parsedServerData = JSON.parse(serverData);
-                this.handleServerConnection(socket, parsedServerData);
-            } catch (error) {
-                console.error("Error parsing serverData:", error);
-            }
-        }
-
-        // Handle client data
-        if (clientData) {
-            try {
-                const parsedClientData = JSON.parse(clientData);
-                this.handleClientConnection(socket, parsedClientData);
-            } catch (error) {
-                console.error("Error parsing clientData:", error);
-            }
-        }
-
-        // Handle Admin data
-        if(adminData){
-          try {
-                const parsedAdminData = JSON.parse(adminData);
-                this.handleAdmistration(socket,parsedAdminData)
-          } catch (error) {
-            
-          }
-        }
-
-        socket.on("endService", (data) => this.handleEndService(data));
-        socket.on("startService", (data) => this.handleStartService(data));
-        socket.on("disconnect", () => this.handleDisconnection(socket));
+      console.log("New client connected");
+  
+      socket.on("admin", (adminData) => {
+        this.handleAdmistration(socket, adminData);
+      });
+  
+      socket.on("server", (serverData) => {
+        this.handleServerConnection(socket, serverData);
+        this.checkAndAssignCustomersToServers(serverData.companyId); 
+      });
+  
+      socket.on("customer", (clientData) => {
+        this.handleClientConnection(socket, clientData);
+        this.checkAndAssignCustomersToServers(clientData.companyId); 
+      });
+  
+      socket.on("startService", (data) => {
+        this.handleStartService(data);
+      });
+  
+      socket.on("endService", (data) => {
+        this.handleEndService(data);
+      });
+  
+      socket.on("disconnect", () => {
+        this.handleDisconnection(socket);
+      });
     });
+  }
+  
+  
 }
 
-}
-const { Server } = require("socket.io");
-const http = require('http');
-const express = require('express');
-const app = express();
-const server = http.createServer(app) 
-const Company = require("../models/company");
-const Customer = require("../models/customer");
-const Channel = require("../models/server");
-
-// Initialize the ConnectionManager
 const connectionManager = new ConnectionManager(server);
-
-module.exports = { app, server, express,connectionManager };  // Ensure this is exported
+module.exports = {app, server}
