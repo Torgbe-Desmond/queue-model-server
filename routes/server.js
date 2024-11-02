@@ -14,6 +14,4 @@ router.post('/addServer', addServer);
 // Delete server endpoint
 router.delete('/deleteServer/:serverId', deleteServer);
 
-
-
 module.exports = router;

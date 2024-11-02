@@ -3,7 +3,7 @@ class ConnectionManager {
   constructor(server) {
     this.io = new Server(server, {
       cors: {
-        origin: ["https://queue-it-p53j.vercel.app", "http://172.20.10.2:4000"],
+        origin: ["https://queue-it-p53j.vercel.app", "http://172.20.10.2:4000","http://localhost:3000"],
         methods: ["GET", "POST", "DELETE", "PUT"],
       },
     });
@@ -46,13 +46,10 @@ class ConnectionManager {
     setInterval(async () => {
       for (const companyId in this.availableServers) {
 
-
-
         // handle sending active server to appropriate administration dashboard
         this.emitActiveServers()
         this.fireNumberOFCustomersSocket()
   
-
         const idleChannels   = this.currentIdleChannels[companyId]?.idleChannels || [];
         const onlineChannels = this.availableServers[companyId]?.onlineChannels || [];
         const waitingInLineCustomers = this.customersByCompany[companyId].waitingInLineCustomers || []
@@ -157,7 +154,6 @@ class ConnectionManager {
   emitActiveServers() {
     // Iterate over adminId keys in availableServers
     for (const companyId of Object.keys(this.adminSocketMap)) {
-      console.log('inside emit active servers', companyId)
       if (this.registeredCompanies.has(companyId)) {
           const activeChannels = this.availableServers[companyId].onlineChannels;
           console.log(activeChannels)
@@ -333,6 +329,7 @@ async handleEndService(data) {
             }
         }
 
+        // Handle Admin data
         if(adminData){
           try {
                 const parsedAdminData = JSON.parse(adminData);

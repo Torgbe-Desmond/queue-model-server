@@ -9,7 +9,7 @@
 
   app.use(express.json());
   app.use(cors({
-    origin:["https://queue-it-p53j.vercel.app"],
+    origin:["https://queue-it-p53j.vercel.app","http://localhost:3000"],
     methods:["POST","DELETE","PUT"],
     credentials:true,
   }))
