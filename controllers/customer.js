@@ -6,10 +6,7 @@ const { StatusCodes } = require('http-status-codes');
 const BadRequest = require('../Errors/BadRequest');
 const { generateRandomString } = require('../utils/generateRandomString');
 const mongoose = require('mongoose')
-const Company = require('../models/company')
-const HandleFileCreationHandler = require('../utils/handleFileCreation');
-const { uploadFileToStorage, updateImage } = require('../utils/firebaseInteractions');
-const createFile = new HandleFileCreationHandler();
+const {  updateImage } = require('../utils/firebaseInteractions');
 const File = require('../models/imageFile')
 
 
