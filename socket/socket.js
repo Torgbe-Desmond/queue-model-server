@@ -59,13 +59,12 @@ class ConnectionManager {
     const idleChannels = this.currentIdleChannels[companyId]?.idleChannels || [];
     const waitingInLineCustomers = this.customersByCompany[companyId]?.waitingInLineCustomers || [];
   
-    // Fire customer socket update
     this.fireNumberOFCustomersSocket();
     this.emitActiveServers();
   
     while (waitingInLineCustomers.length > 0 && idleChannels.length > 0) {
-      const nextAvailableCustomer = waitingInLineCustomers.shift(); // Get the next customer
-      const nextAvailableServer = idleChannels.shift(); // Get the next available server
+      const nextAvailableCustomer = waitingInLineCustomers.shift();
+      const nextAvailableServer = idleChannels.shift(); 
   
       const customerInfo = await Customer.findById(nextAvailableCustomer).select('-password').populate('image');
       const channelInfo = await Channel.findById(nextAvailableServer).select('-password');
@@ -73,7 +72,6 @@ class ConnectionManager {
       this.fireUserSocket(nextAvailableCustomer, channelInfo);
       this.fireServerSocket(nextAvailableServer, customerInfo);
   
-      // Store the customer being served
       this.customersBeingServed[companyId][nextAvailableServer] = nextAvailableCustomer;
   
     }

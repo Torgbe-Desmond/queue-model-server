@@ -7,4 +7,5 @@ router.post('/scan-history',createScanHistory )
 router.get('/get-user-history/:id', getAllScanHistories )
 
 router.delete('/delete-history/:historyId',deleteScanHistory)
+
 module.exports = router;   

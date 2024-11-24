@@ -1,16 +1,14 @@
-// Import required modules and configurations
-const firebase = require('firebase/app'); // Firebase app initialization
-require('dotenv').config(); // Load environment variables from .env file
+const firebase = require('firebase/app'); 
+require('dotenv').config();
 const {
-    getStorage, // Function to get the storage service
-    ref, // Function to create a reference to a storage location
-    getDownloadURL, // Function to get the download URL of a file
-    uploadBytesResumable, // Function for uploading files with resumable support
-    deleteObject, // Function to delete a file from storage
+    getStorage, 
+    ref, 
+    getDownloadURL,
+    uploadBytesResumable, 
+    deleteObject, 
 } = require('firebase/storage');
 
 
-// Initialize Firebase with the provided configuration
 const firebaseConfig = {
     apiKey: process.env.FIREBASE_API_KEY,
     authDomain: process.env.FIREBASE_AUTH_DOMAIN,
@@ -21,9 +19,8 @@ const firebaseConfig = {
     measurementId: process.env.FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase app
 firebase.initializeApp(firebaseConfig);
-const storage = getStorage(); // Get the storage service
+const storage = getStorage(); 
 
 
 
@@ -34,10 +31,8 @@ const uploadFileToStorage = async (user_id, file, originalname) => {
         const storageRef = ref(storage, `customers/${user_id}/${originalname}`);
         const metadata = { contentType: mimetype };
 
-        // Upload the file with resumable upload
         await uploadBytesResumable(storageRef, buffer, metadata);
 
-        // Get the download URL for the uploaded file
         return await getDownloadURL(storageRef);
     } catch (error) {
         console.error('Error uploading file:', error);
@@ -48,7 +43,6 @@ const uploadFileToStorage = async (user_id, file, originalname) => {
 const updateImage = async (user_id, file, originalname) => {
     try {
         const storageRef = ref(storage, `customers/${user_id}/${originalname}`);
-        // Check if the file exists by attempting to delete it
         try {
             await deleteObject(storageRef);
             console.log('Existing file deleted successfully');
@@ -57,11 +51,10 @@ const updateImage = async (user_id, file, originalname) => {
                 console.log('No existing file to delete, proceeding with upload');
             } else {
                 console.error('Error deleting existing file:', deleteError);
-                throw deleteError; // Re-throw if it's an unexpected error
+                throw deleteError;
             }
         }
 
-        // Upload the new file
         return await uploadFileToStorage(user_id, file, originalname);
     } catch (error) {
         console.error('Error updating image:', error);

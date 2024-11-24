@@ -23,7 +23,6 @@
 
 
   //custom middleware
-
   app.use(require('./middleware/notFound'))
   app.use(require('./middleware/errorMiddleware'))
 
